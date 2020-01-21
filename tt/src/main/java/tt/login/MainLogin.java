@@ -4,28 +4,47 @@ import java.io.File;
 
 import javax.imageio.ImageIO;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
+
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MainLogin {
+	private int retryNumber = 3;
 	private String host = "kq.neusoft.com";
-	private String accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8";
+	private String accept = "text/html, application/xhtml+xml, image/jxr, */*";
 	private String connection = "Keep-Alive";
-	private String useragent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.75 Safari/537.36";
+	private String useragent = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko";
 	private String cookie = null;
 	private String fname = null;
 	private String fpass = null;
@@ -34,101 +53,77 @@ public class MainLogin {
 	private String fkey = null;
 	private Boolean login = false;
 	private String ffkey = null;
+	private String currentempoid = null;
 	
-	public String getPostReq() {
+	public String getPostReq() throws Exception {
 		StringBuffer sb = new StringBuffer();
-		sb.append("login=true&neusoft_attendance_online=&").append(ffkey).append("=&neusoft_key=");
-		sb.append(reStr(fkey)).append("&");
-		sb.append(reStr(fname)).append("=").append("li-sht").append("&");
-		sb.append(reStr(fpass)).append("=").append("1q2w3e4r%21Q%40W%23E%24R").append("&");
-		sb.append(reStr(fpic)).append("=").append(fpicpass);		
+		sb.append("login=true&neusoft_attendance_online=&")
+		.append(ffkey).append("=&neusoft_key=").append(reStr(fkey)).append("&")
+		.append(reStr(fname)).append("=").append(reStr("li-sht")).append("&")
+		.append(reStr(fpass)).append("=").append(reStr("1q2w3e4r!Q@W#E$R")).append("&")
+		.append(reStr(fpic)).append("=").append(fpicpass);		
 		return sb.toString();
 	}
-	private String reStr(String str) {
-		return str.replace("!", "%21");
+	public Map<String, String> getPostReqM() {
+		Map<String, String> pm = new HashMap<String, String>();
+		pm.put("login", "true");
+		pm.put("neusoft_attendance_online", "");
+		pm.put(ffkey, "");
+		pm.put("neusoft_key", fkey);
+		pm.put(fname, "li-sht");
+		pm.put(fpass, "1q2w3e4r!Q@W#E$R");
+		pm.put(fpic, fpicpass);
+		return pm;
+	}
+	private String reStr(String str) throws Exception {
+//		return str.replace("!", "%21");
+		return URLEncoder.encode(str, "utf-8");
 	}
 
- 
-    /**
-     * 向指定 URL 发送POST方法的请求
-     * @param url 发送请求的 URL
-     * @param param 请求参数，请求参数应该是 name1=value1&name2=value2 的形式。
-     * @return 所代表远程资源的响应结果
-     */
-    public String sendPost(String url, String param) {
-    	PrintWriter out = null;
-        BufferedReader in = null;
-        String result = "";
-        try {
-            URL realUrl = new URL(url);
-            // 打开和URL之间的连接
-            URLConnection conn = realUrl.openConnection();
-            // 设置通用的请求属性
-            conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
-            conn.setRequestProperty("connection", "keep-alive");
-            conn.setRequestProperty("user-agent","Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.75 Safari/537.36");
-            conn.setRequestProperty("Host", "kq.neusoft.com");
-            conn.setRequestProperty("Origin", "http://kq.neusoft.com");
-            conn.setRequestProperty("Referer", "http://kq.neusoft.com/");
-            conn.setRequestProperty("Cookie", cookie);
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.setRequestProperty("Accept-Encoding", "gzip, deflate");//Accept-Encoding: gzip, deflate
-            conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");//Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
-            // 发送POST请求必须设置如下两行
-            conn.setDoOutput(true);
-            conn.setDoInput(true);
-            //1.获取URLConnection对象对应的输出流
-            out = new PrintWriter(conn.getOutputStream());
-            //2.中文有乱码的需要将PrintWriter改为如下
-//            out=new OutputStreamWriter(conn.getOutputStream(),"UTF-8");
-            // 发送请求参数
-            out.write(param);//.print(param);
-            // flush输出流的缓冲
-            out.flush();
-            Map<String, List<String>> map = conn.getHeaderFields();
-            if(map.containsKey("Location")) {
-            	List<String> listStr = map.get("Location");
-            	ll(listStr);    
-            	if(listStr.get(0).indexOf("attendance.jsp")>1) {
-            		login = true;
-            	}else {
-            		login = false;
-            	}
-            }
-            for (String key : map.keySet()) {
-                System.out.println(key + "---p--->" + map.get(key));
-            }
-            // 定义BufferedReader输入流来读取URL的响应
-            in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String line;
-            while ((line = in.readLine()) != null) {
-                result += line;
-            }
-        } catch (Exception e) {
-            System.out.println("发送 POST 请求出现异常！"+e);
-            e.printStackTrace();
-        }
-        //使用finally块来关闭输出流、输入流
-        finally{
-            try{
-                if(out!=null){
-                    out.close();
-                }
-                if(in!=null){
-                    in.close();
-                }
-            }
-            catch(IOException ex){
-                ex.printStackTrace();
-            }
-        }
-        System.out.println("post推送结果："+result);
-        return result;
-    }
-    
+	public String requestOCRForHttp(String url, Map<String, String> requestParams) throws Exception {
+		String result = null;
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		/** HttpPost */
+		HttpPost httpPost = new HttpPost(url);
+		httpPost.setHeader("Cookie", cookie);
+		ll(" post set Cookie = "+cookie);
+		List<NameValuePair> params = new ArrayList<NameValuePair>();
+		Iterator<Entry<String, String>> it = requestParams.entrySet().iterator();
+//		System.out.println(params.toString());
+		while (it.hasNext()) {
+			Entry<String, String> en = it.next();
+			String key = en.getKey();
+			String value = en.getValue();
+			if (value != null) {
+				params.add(new BasicNameValuePair(key, value));
+			}
+		}
+		httpPost.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
+		/** HttpResponse */
+		CloseableHttpResponse httpResponse = httpClient.execute(httpPost);
+		try {
+			HttpEntity httpEntity = httpResponse.getEntity();
+			result = EntityUtils.toString(httpEntity, "utf-8");
+			EntityUtils.consume(httpEntity);
+			if (result.indexOf("attendance.jsp") > 1) {
+				login = true;
+				ll(".........login result is ok");
+			}
+		} finally {
+			try {
+				if (httpResponse != null) {
+					httpResponse.close();
+				}
+			} catch (IOException e) {
+				ll("## release resouce error ##" + e);
+			}
+		}
+//		ll(" post result = "+result);
+		return result;
+	}
 
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception  {
 		// TODO Auto-generated method stub
 		MainLogin ml = new MainLogin();
 		ml.dowhile();
@@ -139,40 +134,62 @@ public class MainLogin {
 //		}
 	}
 	
-	public void dowhile() {
-//		String imgurl = "D:\\imageRandeCode.jpg";
-//		String code = executeTess4J(imgurl);
-//		System.out.println("--- "+code);
-		
-		String s1 = sendGet("http://kq.neusoft.com/", null,null);
+	public void dowhile() throws Exception {
+		// String imgurl = "D:\\imageRandeCode.jpg";
+		// String code = executeTess4J(imgurl);
+		// System.out.println("--- "+code);
+
+		String s1 = sendGet("http://kq.neusoft.com/", null, null);
 		ll("s1 = " + s1);
-		if (null != cookie) {
-			ll("cookie = " + cookie);
-			String ss = getImg();
-			if(isNumeric0(ss)) {
-				fpicpass = ss;
-				ll("fpicpass = " + fpicpass);
-				String postbody = getPostReq();
-				ll("postbody = " + postbody);
-				if (null != fname && null != fpass && null != fpic && null != fpicpass && null != fkey) {
-					String ps = sendPost("http://kq.neusoft.com/login.jsp", postbody);
-					ll("ps = " + ps);
-					ll("login => " + login);
-					if (login) {
-						ll(" login in --> .");
-						// String s2 = sendGet("http://kq.neusoft.com/attendance.jsp", null,cookie);
-						// ll("s2 = "+ s2);
-						// String ps2 = sendPost("http://kq.neusoft.com/record.jsp" , null);
-						// ll("ps2 = "+ ps2);
+		try {
+			if (null != cookie) {
+				ll("cookie = " + cookie);
+				String ss = getImg();
+				if (isNumeric0(ss)) {
+					fpicpass = ss;
+					ll("fpicpass = " + fpicpass);
+					String postbody = getPostReq();
+					ll("postbody = " + postbody);
+					if (null != fname && null != fpass && null != fpic && null != fpicpass && null != fkey) {
+						// String ps = sendPost("http://kq.neusoft.com/login.jsp", postbody);
+						String ps = requestOCRForHttp("http://kq.neusoft.com/login.jsp", getPostReqM());
+						ll("ps = " + ps);
+						ll("login => " + login);
+						if (login) {							
+							ll(" login in --> .");
+							currentempoid = null;
+							 String s2 = sendGet("http://kq.neusoft.com/attendance.jsp", null,cookie);
+							 ll("s2 = "+ s2);
+							if (null != currentempoid) {
+								Thread.sleep(1000 * 3);
+								Map<String, String> bod = new HashMap<String, String>();
+								bod.put("currentempoid", currentempoid);
+								bod.put("browser", "Chrome");
+								String ps2 = requestOCRForHttp("http://kq.neusoft.com/record.jsp",bod);
+								ll("++++++++++++++++++++++++++++++++++++++++++++++ ok end .ps2 = " + ps2);
+							}
+						}
+					} else {
+						ll(" error has null .");
 					}
-				}else {
-					ll(" error has null .");
+				} else {
+					ll(" error fpicpass not number . = " + fpicpass);
 				}
-			}else {
-				ll(" error fpicpass not number . = "+fpicpass );
+			} else {
+				ll(" error cookie is null");
 			}
-		}else {
-			ll(" error cookie is null");
+		} catch (Exception e) {
+			ll("====== Exception : " + e.getMessage());
+		}
+		if (!login) {
+			Thread.sleep(1000 * 10);
+			ll("-----------------------------------------------------------");
+			ll("--------    retry   (" + retryNumber + ")       --------------------------------");
+			ll("-----------------------------------------------------------");
+			if (retryNumber > 0) {
+				retryNumber--;
+				dowhile();
+			}
 		}
 	}
 
@@ -195,9 +212,9 @@ public class MainLogin {
         	}
             URL realUrl = new URL(urlNameString);
             URLConnection conn = realUrl.openConnection();
-            conn.setRequestProperty("accept", accept);
-            conn.setRequestProperty("connection", connection);
-            conn.setRequestProperty("user-agent", useragent);
+            conn.setRequestProperty("Accept", accept);
+            conn.setRequestProperty("Connection", connection);
+            conn.setRequestProperty("User-agent", useragent);
             conn.setRequestProperty("Host", host);
             if(null != cook) {
             	conn.setRequestProperty("Cookie", cook);
@@ -246,6 +263,12 @@ public class MainLogin {
             		String s2 = s.substring(0,s.indexOf("\" />"));
             		ffkey = s2 ;
             		ll("Get fpic is === "+fpic);
+            	}
+            	if(line.indexOf("put type=\"hidden\" name=\"currentempoid\" value=\"")>0) {
+            		String s = line.substring(line.indexOf("put type=\"hidden\" name=\"currentempoid\" value=\"")+46);
+            		String s2 = s.substring(0,s.indexOf("\">"));
+            		currentempoid = s2 ;
+            		ll("Get currentempoid is === "+currentempoid);
             	}
                 result += line;
             }
@@ -302,20 +325,20 @@ public class MainLogin {
         }
         return null;
     }	
-	public static String executeTess4J(String imgUrl){
-		//https://github.com/tesseract-ocr/tessdata
-        String ocrResult = "";
-        try{
-            ImageIO.scanForPlugins();
-            ITesseract instance = new Tesseract();
-            instance.setLanguage("eng");
-            File imgDir = new File(imgUrl);
-            ocrResult = instance.doOCR(imgDir);
-        }catch (TesseractException e){
-            e.printStackTrace();
-        }
-        return ocrResult;
-    }
+//	public static String executeTess4J(String imgUrl){
+//		//https://github.com/tesseract-ocr/tessdata
+//        String ocrResult = "";
+//        try{
+//            ImageIO.scanForPlugins();
+//            ITesseract instance = new Tesseract();
+//            instance.setLanguage("eng");
+//            File imgDir = new File(imgUrl);
+//            ocrResult = instance.doOCR(imgDir);
+//        }catch (TesseractException e){
+//            e.printStackTrace();
+//        }
+//        return ocrResult;
+//    }
 	public static String executeTess4J(BufferedImage image){
 		//https://github.com/tesseract-ocr/tessdata
         String ocrResult = "";
