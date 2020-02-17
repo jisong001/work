@@ -1,6 +1,8 @@
 package tt.login;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 
 import javax.imageio.ImageIO;
 
@@ -22,6 +24,7 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -36,11 +39,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MainLogin {
-	private int retryNumber = 3;
+	private String user = null;
+	private String pass = null;	
+	private int retryNumber = 7;
 	private String host = "kq.neusoft.com";
 	private String accept = "text/html, application/xhtml+xml, image/jxr, */*";
 	private String connection = "Keep-Alive";
@@ -55,12 +61,47 @@ public class MainLogin {
 	private String ffkey = null;
 	private String currentempoid = null;
 	
+	public static void main(String[] args) throws Exception  {
+		// TODO Auto-generated method stub
+		MainLogin ml = new MainLogin();
+		if(ml.getUP()) {
+			System.out.println("------ next start... ");
+			ml.dowhile();
+		}
+//		
+		
+//		if(ml.isNumeric0("6026")) {
+//			ml.ll("is ");
+//		}else {
+//			ml.ll("no ");
+//		}
+	}
+	public Boolean getUP() throws Exception {
+		Properties properties = new Properties();
+//        InputStream inputStream = Object.class.getResourceAsStream("At.properties");
+        InputStream inputStream = new FileInputStream("At.properties");
+        try {
+            properties.load(inputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        user = (String) properties.get("User");
+        pass = (String) properties.get("Pass");
+        if(null == user || null == pass || user.length()<=1 || pass.length()<=1) {
+        	ll(" ERROR: ---> get User|Pass error . user="+user+";pass="+pass);
+        	return false;
+        }else {
+        	ll(" login user = "+user+" ; pass = "+pass);
+        	return true;
+        }
+	}
+	
 	public String getPostReq() throws Exception {
 		StringBuffer sb = new StringBuffer();
 		sb.append("login=true&neusoft_attendance_online=&")
 		.append(ffkey).append("=&neusoft_key=").append(reStr(fkey)).append("&")
-		.append(reStr(fname)).append("=").append(reStr("li-sht")).append("&")
-		.append(reStr(fpass)).append("=").append(reStr("1q2w3e4r!Q@W#E$R")).append("&")
+		.append(reStr(fname)).append("=").append(reStr(user)).append("&")
+		.append(reStr(fpass)).append("=").append(reStr(pass)).append("&")
 		.append(reStr(fpic)).append("=").append(fpicpass);		
 		return sb.toString();
 	}
@@ -70,8 +111,8 @@ public class MainLogin {
 		pm.put("neusoft_attendance_online", "");
 		pm.put(ffkey, "");
 		pm.put("neusoft_key", fkey);
-		pm.put(fname, "li-sht");
-		pm.put(fpass, "1q2w3e4r!Q@W#E$R");
+		pm.put(fname, user);
+		pm.put(fpass, pass);
 		pm.put(fpic, fpicpass);
 		return pm;
 	}
@@ -122,25 +163,13 @@ public class MainLogin {
 		return result;
 	}
 
-
-	public static void main(String[] args) throws Exception  {
-		// TODO Auto-generated method stub
-		MainLogin ml = new MainLogin();
-		ml.dowhile();
-//		if(ml.isNumeric0("6026")) {
-//			ml.ll("is ");
-//		}else {
-//			ml.ll("no ");
-//		}
-	}
-	
 	public void dowhile() throws Exception {
 		// String imgurl = "D:\\imageRandeCode.jpg";
 		// String code = executeTess4J(imgurl);
 		// System.out.println("--- "+code);
 
 		String s1 = sendGet("http://kq.neusoft.com/", null, null);
-		ll("s1 = " + s1);
+//		ll("s1 = " + s1);
 		try {
 			if (null != cookie) {
 				ll("cookie = " + cookie);
@@ -153,20 +182,20 @@ public class MainLogin {
 					if (null != fname && null != fpass && null != fpic && null != fpicpass && null != fkey) {
 						// String ps = sendPost("http://kq.neusoft.com/login.jsp", postbody);
 						String ps = requestOCRForHttp("http://kq.neusoft.com/login.jsp", getPostReqM());
-						ll("ps = " + ps);
+//						ll("ps = " + ps);
 						ll("login => " + login);
 						if (login) {							
 							ll(" login in --> .");
 							currentempoid = null;
 							 String s2 = sendGet("http://kq.neusoft.com/attendance.jsp", null,cookie);
-							 ll("s2 = "+ s2);
+//							 ll("s2 = "+ s2);
 							if (null != currentempoid) {
 								Thread.sleep(1000 * 3);
 								Map<String, String> bod = new HashMap<String, String>();
 								bod.put("currentempoid", currentempoid);
 								bod.put("browser", "Chrome");
 								String ps2 = requestOCRForHttp("http://kq.neusoft.com/record.jsp",bod);
-								ll("++++++++++++++++++++++++++++++++++++++++++++++ ok end .ps2 = " + ps2);
+								ll("++++++++++++++++++++++++++++++++++++++++++++++ ok end ." );
 							}
 						}
 					} else {
@@ -182,7 +211,7 @@ public class MainLogin {
 			ll("====== Exception : " + e.getMessage());
 		}
 		if (!login) {
-			Thread.sleep(1000 * 10);
+			Thread.sleep(1000 * 20);
 			ll("-----------------------------------------------------------");
 			ll("--------    retry   (" + retryNumber + ")       --------------------------------");
 			ll("-----------------------------------------------------------");
@@ -238,43 +267,43 @@ public class MainLogin {
             		String s = line.substring(line.indexOf("<input type=\"text\" class=\"textfield\" name=\"")+43);
             		String s2 = s.substring(0,s.indexOf("\" id=\""));
             		fname = s2 ;
-            		ll("Get fname is === "+fname);
+//            		ll("Get fname is === "+fname);
             	}
             	if(line.indexOf("<input type=\"password\" class=\"textfield\" name=\"")>0) {
             		String s = line.substring(line.indexOf("<input type=\"password\" class=\"textfield\" name=\"")+47);
             		String s2 = s.substring(0,s.indexOf("\" />"));
             		fpass = s2 ;
-            		ll("Get fpass is === "+fpass);
+//            		ll("Get fpass is === "+fpass);
             	}
             	if(line.indexOf("type=\"hidden\" name=\"neusoft_key\" value=\"")>0) {
             		String s = line.substring(line.indexOf("type=\"hidden\" name=\"neusoft_key\" value=\"")+40);
             		String s2 = s.substring(0,s.indexOf("\" />"));
             		fkey = s2 ;
-            		ll("Get fkey is === "+fkey);
+//            		ll("Get fkey is === "+fkey);
             	}
             	if(line.indexOf("#707070;\"   name=\"")>0) {
             		String s = line.substring(line.indexOf("#707070;\"   name=\"")+18);
             		String s2 = s.substring(0,s.indexOf("\" />"));
             		fpic = s2 ;
-            		ll("Get fpic is === "+fpic);
+//            		ll("Get fpic is === "+fpic);
             	}
             	if(line.indexOf("<input type=\"text\" name=\"KEY")>0) {
             		String s = line.substring(line.indexOf("<input type=\"text\" name=\"KEY")+25);
             		String s2 = s.substring(0,s.indexOf("\" />"));
             		ffkey = s2 ;
-            		ll("Get fpic is === "+fpic);
+//            		ll("Get fpic is === "+fpic);
             	}
             	if(line.indexOf("put type=\"hidden\" name=\"currentempoid\" value=\"")>0) {
             		String s = line.substring(line.indexOf("put type=\"hidden\" name=\"currentempoid\" value=\"")+46);
             		String s2 = s.substring(0,s.indexOf("\">"));
             		currentempoid = s2 ;
-            		ll("Get currentempoid is === "+currentempoid);
+//            		ll("Get currentempoid is === "+currentempoid);
             	}
                 result += line;
             }
         } catch (Exception e) {
             System.out.println("发送GET请求出现异常！" + e);
-            e.printStackTrace();
+//            e.printStackTrace();
         }
         // 使用finally块来关闭输入流
         finally {
@@ -311,7 +340,6 @@ public class MainLogin {
             return fpicpass;
         } catch (Exception e) {
             System.out.println(" getImg 请求出现异常！" + e);
-            e.printStackTrace();
         }
         // 使用finally块来关闭输入流
         finally {
